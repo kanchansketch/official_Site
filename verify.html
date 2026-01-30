@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Certificate | Reinventing</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .verify-section {
+            padding: 8rem 0 4rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .cert-container {
+            width: 100%;
+            max-width: 900px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .status-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .valid {
+            color: #10b981;
+        }
+
+        .invalid {
+            color: #ef4444;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 0.8rem;
+            border-radius: 50px;
+            border: 1px solid var(--card-border);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            padding-left: 1.5rem;
+        }
+
+        .loader {
+            border: 4px solid var(--card-border);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="index.html" class="logo">Reinventing<span class="text-gradient">.</span></a>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="index.html#contact">Contact</a>
+                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle Dark Mode">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <section class="verify-section container">
+        <h1>Certificate <span class="text-gradient">Verification</span></h1>
+
+        <!-- Search Input if no ID in URL -->
+        <div class="search-box">
+            <input type="text" id="certInput" placeholder="Enter Certificate ID to verify">
+            <button onclick="searchCert()" class="btn">Verify</button>
+        </div>
+
+        <div id="resultContainer" class="cert-container" style="display: none;">
+            <!-- Content Injected via JS -->
+        </div>
+
+        <div id="loading" class="loader" style="display: none;"></div>
+    </section>
+
+    <footer>
+        <div class="container footer-bottom">
+            <p>&copy; 2026 Reinventing. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script> <!-- For Theme Toggle -->
+
+    <script>
+        // Supabase URL (Public Project)
+        const PROJECT_URL = 'https://gsooqjfqrqiqmatgnsad.supabase.co';
+        const BUCKET_NAME = 'Certificates';
+
+        const resultContainer = document.getElementById('resultContainer');
+        const loading = document.getElementById('loading');
+        const certInput = document.getElementById('certInput');
+
+        // Check URL Param on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('id');
+            if (id) {
+                certInput.value = id;
+                verifyCertificate(id);
+            }
+        });
+
+        function searchCert() {
+            const id = certInput.value.trim();
+            if (id) {
+                // Update URL
+                const newUrl = new URL(window.location.href);
+                newUrl.searchParams.set('id', id);
+                window.history.pushState({}, '', newUrl);
+
+                verifyCertificate(id);
+            }
+        }
+
+        async function verifyCertificate(id) {
+            loading.style.display = 'block';
+            resultContainer.style.display = 'none';
+
+            // Construct Public URL
+            // Format: https://[project_id].supabase.co/storage/v1/object/public/[bucket]/[filename]
+            const publicUrl = `${PROJECT_URL}/storage/v1/object/public/${BUCKET_NAME}/${id}.pdf`;
+
+            try {
+                // Check if file exists by fetching HEAD
+                const response = await fetch(publicUrl, { method: 'HEAD' });
+
+                if (response.ok) {
+                    // Valid
+                    showResult(true, id, publicUrl);
+                } else {
+                    // Not Found
+                    showResult(false, id);
+                }
+            } catch (error) {
+                console.error(error);
+                showResult(false, id);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        function showResult(isValid, id, url) {
+            resultContainer.style.display = 'block';
+            if (isValid) {
+                resultContainer.innerHTML = `
+                    <i class="fas fa-check-circle status-icon valid"></i>
+                    <h2 style="color: #10b981;">Valid Certificate</h2>
+                    <p style="color: var(--text-secondary);">Certificate ID: <strong>${id}</strong></p>
+                    <p>This certificate is authentic and issued by Reinventing.</p>
+                    <a href="${url}" target="_blank" class="btn" style="margin-top: 1rem;"><i class="fas fa-download"></i> Download PDF</a>
+                    <iframe src="${url}#toolbar=0" title="Certificate Preview"></iframe>
+                `;
+            } else {
+                resultContainer.innerHTML = `
+                    <i class="fas fa-times-circle status-icon invalid"></i>
+                    <h2 style="color: #ef4444;">Invalid Certificate</h2>
+                    <p style="color: var(--text-secondary);">Certificate ID: <strong>${id}</strong></p>
+                    <p>We could not find a valid certificate with this ID in our records.</p>
+                    <p style="font-size: 0.9rem; margin-top: 1rem; color: var(--text-secondary);">Please check the ID and try again.</p>
+                `;
+            }
+        }
+    </script>
+</body>
+
+</html>

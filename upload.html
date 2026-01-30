@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Certificate | Reinventing Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: var(--bg-color);
+        }
+
+        .upload-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 3rem;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 500px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+        }
+
+        input[type="file"]::file-selector-button {
+            margin-right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        .status {
+            margin-top: 1rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .status.success {
+            color: #10b981;
+        }
+
+        .status.error {
+            color: #ef4444;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="upload-card">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Upload Certificate</h2>
+
+        <div class="form-group">
+            <label for="certId">Certificate ID</label>
+            <input type="text" id="certId" placeholder="e.g., CERT-2026-001" required>
+        </div>
+
+        <div class="form-group">
+            <label for="file">Certificate PDF (Max 5MB)</label>
+            <input type="file" id="file" accept="application/pdf" required>
+        </div>
+
+        <button id="uploadBtn" class="btn" style="width: 100%;">Upload Certificate</button>
+        <p id="status" class="status"></p>
+    </div>
+
+    <script type="module">
+        // --- SUPABASE CONFIGURATION ---
+        // REPLACE WITH YOUR ACTUAL SUPABASE URL AND ANON KEY
+        const SUPABASE_URL = 'https://gsooqjfqrqiqmatgnsad.supabase.co';
+        const SUPABASE_KEY = prompt('Please enter your project "anon" API Key (starts with "eyJ..."):');
+
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        const uploadBtn = document.getElementById('uploadBtn');
+        const status = document.getElementById('status');
+
+        uploadBtn.addEventListener('click', async () => {
+            const certId = document.getElementById('certId').value.trim();
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+
+            if (!certId || !file) {
+                status.textContent = "Please provide both ID and File.";
+                status.className = "status error";
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                status.textContent = "File size exceeds 5MB limit.";
+                status.className = "status error";
+                return;
+            }
+
+            if (file.type !== 'application/pdf') {
+                status.textContent = "Only PDF files are allowed.";
+                status.className = "status error";
+                return;
+            }
+
+            status.textContent = "Uploading...";
+            status.className = "status";
+            uploadBtn.disabled = true;
+
+            try {
+                // Rename file to {ID}.pdf
+                const fileName = `${certId}.pdf`;
+
+                const { data, error } = await supabase
+                    .storage
+                    .from('Certificates')
+                    .upload(fileName, file, {
+                        cacheControl: '3600',
+                        upsert: false // Prevent Overwrite
+                    });
+
+                if (error) {
+                    if (error.message.includes('already exists') || error.statusCode === '409') {
+                        throw new Error("Certificate ID already works! Please use a unique ID.");
+                    }
+                    throw error;
+                }
+
+                status.textContent = `Success! Certificate uploaded as ${fileName}`;
+                status.className = "status success";
+
+                // Clear inputs
+                document.getElementById('certId').value = '';
+                fileInput.value = '';
+
+            } catch (err) {
+                console.error(err);
+                status.textContent = `Error: ${err.message}`;
+                status.className = "status error";
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>
